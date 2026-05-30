@@ -18,6 +18,10 @@ skills/
 ├── api-testdata-generator/      # 测试数据自动化构造
 ├── api-testscript-generator/    # 接口自动化测试脚本生成
 ├── api-test-optimizer/          # 接口自动化脚本质量检查与优化
+├── ui-page-parser/              # UI 页面解析器
+├── ui-testscript-generator/     # UI 测试脚本生成
+├── ui-testscript-enhancer/      # UI 测试脚本增强
+├── ui-visual-assert/            # UI 视觉断言
 └── ...                          # 更多技能持续添加中
 ```
 
@@ -378,6 +382,147 @@ api_auto_project/
 
 ---
 
+### ui-page-parser — UI 页面解析器
+
+将页面 URL 或自然语言用例描述转换为标准化的 `pages.yaml` 页面对象定义，作为 UI 自动化测试数据链路的起点。
+
+**适用场景：**
+- 提供页面 URL，自动抓取 DOM 结构和交互元素
+- 全站自动爬取（单入口 URL 发现全站页面）
+- 提供自然语言用例描述，AI 推断页面结构
+- 需要认证的页面抓取
+
+**使用方式：**
+
+在 Claude Code 中提供页面 URL 或用例描述，或输入：
+
+```
+/ui-page-parser
+```
+
+**核心策略：Playwright 动态抓取 → CDP 连接 → 推断兜底（三级降级）**
+
+| 模式 | 说明 |
+|------|------|
+| Playwright 动态抓取 | 首选，启动无头浏览器抓取渲染后真实 DOM + 截图 |
+| CDP 连接模式 | macOS 沙箱兼容，连接外部 Chrome 进程 |
+| 推断兜底模式 | 无法访问页面时，AI 基于用例推断页面结构 |
+
+**核心能力：**
+- 全站爬取：BFS 遍历，自动发现链接、Vue Router 路由、参数化 URL 归组
+- 认证抓取：支持 CDP 交互式认证和 Storage State 录制两种方式
+- 自动检测认证拦截页面，发现后引导用户完成认证补爬
+- 输出标准化 `pages.yaml/json`，向下游 UI 测试技能提供标准输入
+
+---
+
+### ui-testscript-generator — UI 测试脚本生成
+
+基于 `pages.yaml` 页面定义和业务测试用例，生成 Playwright + POM + Pytest 的 UI 自动化测试脚本。
+
+**适用场景：**
+- 将业务测试用例转化为可执行的 Playwright 测试代码
+- 创建 POM 页面对象、搭建 UI 自动化测试项目
+- 提供了 pages.yaml 和测试用例文档，希望生成自动化脚本
+
+**使用方式：**
+
+在 Claude Code 中提供 pages.yaml 和测试用例，或输入：
+
+```
+/ui-testscript-generator
+```
+
+**核心原则：以业务测试用例为唯一生成范围，pages.yaml 仅作为元素定位的查询数据库。**
+
+**技术栈：** Playwright + POM（Page Object Model）+ Pytest
+
+**工作流程：**
+
+1. 解析测试用例 → 提取涉及页面和操作步骤
+2. 匹配 pages.yaml → 获取元素定位器
+3. 初始化项目结构 → 创建目录和基础文件
+4. 生成 POM 页面对象 → 每个页面一个类，封装元素操作
+5. 生成测试脚本 → 用例转 pytest 测试方法
+6. 生成测试数据 → 静态数据文件 + DataFactory（Faker）
+
+**核心能力：**
+- 定位器优先级：`data-testid` > `aria-label` > `id` > `name` > CSS > XPath
+- POM 方法返回 self（同页操作）或目标 Page 对象（页面跳转），支持链式调用
+- 测试方法独立，禁止 time.sleep，统一使用 Playwright 自动等待
+
+---
+
+### ui-testscript-enhancer — UI 测试脚本增强
+
+对已生成的 Playwright + POM + Pytest UI 测试脚本做健壮性增强，提升脚本运行稳定性。
+
+**适用场景：**
+- 脚本跑不稳定、经常失败（flaky test）
+- 需要添加智能等待、验证码识别、弹窗处理
+- 需要失败截图录屏、异常重试等追溯能力
+
+**使用方式：**
+
+在 Claude Code 中提供测试脚本目录，或输入：
+
+```
+/ui-testscript-enhancer
+```
+
+**六大增强能力：**
+
+| 能力 | 说明 |
+|------|------|
+| 智能等待 | `wait_for_page_ready`、`wait_for_ajax`、`wait_for_animation`、`safe_click/fill` |
+| 验证码识别 | 图形验证码（OCR）、滑动验证码、短信验证码、打码平台 API |
+| 弹窗处理 | 自动关闭意外弹窗（alert/confirm/prompt） |
+| iframe 穿透 | 自动进入/退出 iframe，支持 Shadow DOM |
+| 重试容错 | 操作级重试装饰器、页面崩溃自动恢复 |
+| 失败追溯 | 自动截图、Trace 录制、网络请求日志 |
+
+**核心能力：**
+- 不改变原有测试逻辑，只在脚本外围包裹稳定性机制
+- 提供验证码识别专项检测脚本，可独立运行验证 OCR 准确率
+- 增强版 BasePage 替换原有基类，所有 POM 自动继承增强能力
+
+---
+
+### ui-visual-assert — UI 视觉断言
+
+对已增强的 UI 测试脚本添加视觉回归、跨浏览器兼容性、响应式布局测试能力。
+
+**适用场景：**
+- 页面改版后样式变形自动检测
+- 不同浏览器下渲染差异验证
+- 移动端/平板布局响应式测试
+- 截图比对、像素级视觉回归测试
+
+**使用方式：**
+
+在 Claude Code 中提供测试脚本目录，或输入：
+
+```
+/ui-visual-assert
+```
+
+**三大测试能力：**
+
+| 能力 | 说明 |
+|------|------|
+| 视觉回归测试 | pixelmatch + Pillow 像素级截图比对，支持动态区域遮罩 |
+| 跨浏览器测试 | Chromium/Firefox/WebKit 三引擎差异容忍，独立基线管理 |
+| 响应式测试 | desktop (1920x1080) / tablet (768x1024) / mobile (375x812) 多视口 |
+
+**核心能力：**
+- 基于 Playwright 原生截图 + pixelmatch 实现，无需第三方云服务
+- 动态区域处理：通过 CSS 注入隐藏验证码、时间戳等动态内容
+- 元素级截图断言：支持特定元素区域单独比对
+- 基线自动管理：首次运行自动生成基线，UI 变更时 `UPDATE_SNAPSHOTS=true` 更新
+- 截图前预处理：禁用动画、等待字体加载、统一滚动条样式
+
+---
+
 ## 技能协作流程
 
 ### 需求分析与测试用例设计流程
@@ -422,6 +567,27 @@ api-schema-parser ──→ 标准化接口数据 (api_definitions.json)
   │   可直接运行：pytest testcases/
   │
   └──→ 也可直接进入 generator-testcase-xmind/excel 生成接口级测试用例
+```
+
+### UI 自动化测试流程
+
+```
+页面 URL / 测试用例描述
+  │
+  ▼
+ui-page-parser ──→ 标准化页面对象 (pages.yaml)
+  │
+  ▼
+ui-testscript-generator ──→ Playwright + POM + Pytest 测试脚本
+  │
+  ▼
+ui-testscript-enhancer ──→ 脚本健壮性增强（智能等待/验证码/弹窗/重试）
+  │
+  ▼
+ui-visual-assert ──→ 视觉回归 + 跨浏览器 + 响应式测试
+  │
+  ▼
+可直接运行：pytest tests/ --headed
 ```
 
 ## 安装使用

@@ -1,0 +1,178 @@
+# pages.yaml 示例模板
+# 用法：将本文件复制为 pages.yaml，按实际页面结构修改
+
+meta:
+  generated_at: ""          # 由 build_pages_yaml.py 自动填充
+  generator: "ui-page-parser"
+  dom_source: ""            # URL 或文件路径
+  page_count: 1
+  inference_mode: false     # 是否为 LLM 推断模式
+
+pages:
+  # ===== 示例：登录页 =====
+  - page_name: "登录页"
+    url: "/login"
+    module: "用户认证"
+    page_type: "form"
+    description: "用户通过用户名和密码登录系统"
+
+    states:
+      - name: "初始态"
+        description: "页面加载，表单为空"
+      - name: "填写中"
+        description: "用户正在输入凭证"
+      - name: "提交中"
+        description: "等待服务端响应，按钮禁用"
+      - name: "登录成功"
+        description: "跳转到首页 /dashboard"
+      - name: "登录失败"
+        description: "显示错误提示，可重新输入"
+
+    elements:
+      - element_name: "用户名输入框"
+        element_type: "input"
+        locator:
+          strategy: "data-testid"
+          value: "[data-testid='login-username']"
+          fallback:
+            - strategy: "id"
+              value: "#username"
+            - strategy: "name"
+              value: "[name='username']"
+        interaction:
+          action: "fill"
+          value: "${username}"
+        wait_condition:
+          type: "visible"
+        validations:
+          - type: "error_message"
+            trigger: "empty_submit"
+            expected: "用户名不能为空"
+            locator: "[data-testid='username-error']"
+        constraints:
+          required: true
+          max_length: 50
+        metadata:
+          visible: true
+          is_interactive: true
+
+      - element_name: "密码输入框"
+        element_type: "input"
+        locator:
+          strategy: "data-testid"
+          value: "[data-testid='login-password']"
+          fallback:
+            - strategy: "id"
+              value: "#password"
+            - strategy: "name"
+              value: "[name='password']"
+        interaction:
+          action: "fill"
+          value: "${password}"
+        validations:
+          - type: "error_message"
+            trigger: "empty_submit"
+            expected: "密码不能为空"
+            locator: "[data-testid='password-error']"
+        constraints:
+          required: true
+          min_length: 6
+          max_length: 32
+        metadata:
+          visible: true
+          is_interactive: true
+
+      - element_name: "登录按钮"
+        element_type: "button"
+        locator:
+          strategy: "data-testid"
+          value: "[data-testid='login-submit']"
+          fallback:
+            - strategy: "role"
+              value: "role=button[name='登录']"
+            - strategy: "css"
+              value: "button[type='submit']"
+        interaction:
+          action: "click"
+        wait_condition:
+          type: "enabled"
+        constraints:
+          disabled_states: ["提交中"]
+        metadata:
+          visible: true
+          is_interactive: true
+
+      - element_name: "忘记密码链接"
+        element_type: "link"
+        locator:
+          strategy: "data-testid"
+          value: "[data-testid='forget-password-link']"
+          fallback:
+            - strategy: "text"
+              value: "text=忘记密码"
+        interaction:
+          action: "click"
+        metadata:
+          visible: true
+          is_interactive: true
+
+      - element_name: "错误提示文本"
+        element_type: "toast"
+        locator:
+          strategy: "data-testid"
+          value: "[data-testid='login-error-message']"
+          fallback:
+            - strategy: "role"
+              value: "role=alert"
+        interaction:
+          action: "assert"
+        metadata:
+          visible: false   # 初始不可见，错误时出现
+          is_interactive: false
+
+    flows:
+      - flow_name: "正常登录流程"
+        flow_type: "happy_path"
+        steps:
+          - step: 1
+            action: "fill"
+            element: "用户名输入框"
+            value: "${valid_username}"
+          - step: 2
+            action: "fill"
+            element: "密码输入框"
+            value: "${valid_password}"
+          - step: 3
+            action: "click"
+            element: "登录按钮"
+            wait_after: "url_change"
+          - step: 4
+            action: "assert"
+            target: "url"
+            expected: "/dashboard"
+        assertions:
+          - type: "url"
+            expected: "/dashboard"
+
+      - flow_name: "空表单提交"
+        flow_type: "error_path"
+        steps:
+          - step: 1
+            action: "click"
+            element: "登录按钮"
+          - step: 2
+            action: "assert"
+            element: "错误提示文本"
+            expected: "用户名不能为空"
+
+    implicit_rules:
+      - type: "async_load"
+        description: "提交后等待接口 /api/auth/login 响应"
+      - type: "redirect"
+        description: "已登录用户访问 /login 重定向至 /dashboard"
+
+    source:
+      type: "url"
+      value: "http://localhost:3000/login"
+      inference_mode: false
+      confidence: "high"

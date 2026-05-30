@@ -1,0 +1,35 @@
+# 项目目录结构模板
+# 用于 generate_project.py 脚本创建项目骨架
+
+ui-test-automation/
+├── config/
+│   ├── __init__.py
+│   ├── settings.py
+│   └── environments/
+│       ├── dev.yaml
+│       ├── staging.yaml
+│       └── prod.yaml
+├── pages/
+│   ├── __init__.py
+│   ├── base_page.py
+│   └── components/
+│       └── __init__.py
+├── workflows/
+│   └── __init__.py
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   └── fixtures/
+│       └── __init__.py
+├── utils/
+│   ├── __init__.py
+│   ├── logger.py
+│   ├── screenshot_helper.py
+│   └── data_factory.py
+├── data/
+│   └── test_data.yaml
+├── reports/
+├── traces/
+├── screenshots/
+├── pytest.ini
+└── requirements.txt
