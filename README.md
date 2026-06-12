@@ -18,6 +18,12 @@ skills/
 ├── api-testdata-generator/      # 测试数据自动化构造
 ├── api-testscript-generator/    # 接口自动化测试脚本生成
 ├── api-test-optimizer/          # 接口自动化脚本质量检查与优化
+├── api-test-tagger/             # 接口测试脚本智能标签化管理
+├── api-test-executor/           # 接口测试智能执行调度引擎
+├── api-failure-diagnoser/       # 测试失败智能诊断与自动修复
+├── api-testdata-cleaner/        # 接口测试数据清理工具
+├── api-report-generator/        # 接口测试智能报告生成专家
+├── api-pipeline-scheduler/      # 接口自动化全链路流水线调度器
 ├── ui-page-parser/              # UI 页面解析器
 ├── ui-testscript-generator/     # UI 测试脚本生成
 ├── ui-testscript-enhancer/      # UI 测试脚本增强
@@ -382,6 +388,226 @@ api_auto_project/
 
 ---
 
+### api-test-tagger — 接口测试脚本智能标签化管理
+
+为接口自动化测试脚本自动打上标准化标签，建立可筛选、可过滤、可统计的标签体系。
+
+**适用场景：**
+- 为 API 测试脚本批量打标签、添加标记、标注优先级
+- 检测标签冲突或补全缺失标签
+- 按模块/场景/优先级分类管理测试用例
+- 生成标签分布统计报告
+
+**使用方式：**
+
+在 Claude Code 中提供测试脚本目录，或输入：
+
+```
+/api-test-tagger
+```
+
+**五维标准化标签体系：**
+
+| 维度 | 标签格式 | 值域 | 必填 |
+|------|---------|------|------|
+| 优先级 | P0/P1/P2/P3 | P0=核心链路, P1=重要, P2=一般, P3=边缘 | 是 |
+| 模块 | module:xxx | auth/order/product/cart/user/address/payment/admin | 是 |
+| 场景 | scene:xxx | positive/negative/boundary/security | 是 |
+| 执行策略 | run:xxx | smoke/regression/full | 是 |
+| 环境 | env:xxx | dev/test/pre/prod | 否（默认 env:test） |
+
+**核心能力：**
+- 智能标签推荐：基于脚本语义（方法名、docstring、请求路径）自动推荐标签
+- 冲突检测：自动检测优先级、场景、策略冲突并标注
+- 标签补全：每个测试方法必须具备 4 类必填标签，缺失自动补全
+- 支持三种模式：analyze（仅分析）/ apply（分析并写入）/ report（仅统计报告）
+
+---
+
+### api-test-executor — 接口测试智能执行调度引擎
+
+接口自动化测试的智能执行调度引擎，聚焦三大基础能力：触发执行、范围筛选、结果收集。
+
+**适用场景：**
+- 触发执行 pytest 接口测试，自动加载环境配置
+- 按范围/模块/标签/自然语言筛选测试用例
+- 收集结构化测试结果（JSON + Markdown）
+- 模拟执行预览用例列表
+
+**使用方式：**
+
+在 Claude Code 中提供项目目录路径并描述执行意图，或输入：
+
+```
+/api-test-executor
+```
+
+**四种筛选模式：**
+
+| 模式 | 说明 |
+|------|------|
+| 标签索引模式 | 基于 `tag_index.json` 精准筛选（推荐） |
+| pytest marker 模式 | 基于项目 `conftest.py` 定义的 marker 筛选 |
+| 文件路径回退模式 | 按模块匹配文件名筛选 |
+| 自然语言解析模式 | 解析用户自然语言描述为 CLI 参数 |
+
+**核心能力：**
+- 一键触发 pytest，自动组装执行命令
+- 自然语言意图解析（如"跑一下冒烟测试"→ `-m smoke`）
+- 结构化结果收集：`execution_results.json` + `execution_summary.md`
+- 输出 Allure、HTML、JUnit 多格式原生报告
+
+---
+
+### api-failure-diagnoser — 测试失败智能诊断与自动修复
+
+接口自动化测试失败用例的智能诊断与自动修复技能，核心定位是"测试执行闭环的修复环节"。
+
+**适用场景：**
+- 测试失败后自动分析失败原因、分类失败类型
+- 接口变更导致脚本失败，需要自动修复
+- 断言失败、参数构造错误、异常处理缺失等脚本问题修复
+- 批量诊断并修复失败用例
+
+**使用方式：**
+
+在 Claude Code 中提供 `execution_results.json` 或失败日志，或输入：
+
+```
+/api-failure-diagnoser
+```
+
+**四大失败分类：**
+
+| 失败类型 | 判定信号 | 处理 |
+|---------|---------|------|
+| ENV_ERROR | 连接超时、拒绝连接、502/503/504 | 标记环境问题，不修复 |
+| DATA_ERROR | 资源 404、Token 过期、唯一性冲突 | 标记数据问题，不修复 |
+| SCRIPT_ERROR | AssertionError、KeyError、接口路径 404 | **自动修复** |
+| BUG | 500 业务逻辑错误、返回数据违反规则 | 生成 Bug 报告 |
+
+**六大根因类型：** 接口变更、断言过严、参数构造错误、异常处理缺失、数据依赖错误、时序/异步问题
+
+**核心能力：**
+- 自动分类失败类型，精准定位根因
+- 最小侵入修复：仅修改导致失败的最小代码范围
+- 安全机制：备份先行（.bak）、默认生成 .patch 文件供审核
+- 修复后自动验证，验证失败自动回滚
+
+---
+
+### api-testdata-cleaner — 接口测试数据清理工具
+
+接口自动化测试专用的数据清理工具，解决测试执行后的数据堆积与数据污染问题。
+
+**适用场景：**
+- 清理测试执行后产生的临时数据、重复数据、脏数据
+- 重置测试环境、清理缓存、清理临时文件
+- 测试完成后自动清理（联动调用）
+- CI 定时清理测试环境数据
+
+**使用方式：**
+
+在 Claude Code 中描述清理需求，或输入：
+
+```
+/api-testdata-cleaner
+```
+
+**三层清理能力：**
+
+| 层级 | 说明 |
+|------|------|
+| 数据库清理 | 清空测试产生的临时用户、商品、订单、地址等数据 |
+| Redis 缓存清理 | 清理 Token、验证码、临时缓存、接口会话数据 |
+| 本地文件清理 | 清理日志、allure-results、.pytest_cache 等 |
+
+**核心能力：**
+- 生产环境强制拦截（env_type=prod 直接终止）
+- 白名单保护：admin 账号、正式业务数据永久保留
+- 断点容错：单模块失败不中断整体流程
+- 审计留痕：每步操作写入日志，输出标准化清理报告
+
+---
+
+### api-report-generator — 接口测试智能报告生成专家
+
+将接口测试执行结果、诊断结论和历史数据转化为多维度、可视化、可驱动决策的专业 HTML 测试报告。
+
+**适用场景：**
+- 生成可视化 HTML 测试报告
+- 查看测试执行总结、趋势分析
+- 多维度数据图表（饼图/柱状图/折线图）展示
+- 集成 Allure 报告实现双报告联动
+
+**使用方式：**
+
+在 Claude Code 中提供执行结果文件，或输入：
+
+```
+/api-report-generator
+```
+
+**报告包含模块：**
+
+1. 总览大盘（通过率、响应耗时）
+2. 趋势图表（通过率折线图、接口耗时趋势）
+3. 模块统计（按业务模块的饼图/柱状图）
+4. 用例明细（列表展示，支持筛选分页）
+5. 故障详情（失败用例、AI 诊断根因、修复建议）
+6. 风险分级（高/中/低风险模块、高频失败接口）
+7. 优化建议（脚本重构、断言调整、场景补充）
+8. Allure 跳转入口
+
+**核心能力：**
+- 多源数据聚合：对接 executor、diagnoser、cleaner 的输出
+- 单文件 HTML 输出（CSS/JS/图表内联），可独立打开
+- 自动生成并启动 Allure 报告
+- 智能风险分析和优化建议生成
+
+---
+
+### api-pipeline-scheduler — 接口自动化全链路流水线调度器
+
+接口自动化测试的统一调度入口，编排三个子技能按固定顺序串行执行，实现一键完成「测试→清理→报告」全流程。
+
+**适用场景：**
+- 一键测试并出报告（全流程自动化）
+- 流水线执行、pipeline 调度
+- 完整的测试→清理→报告链路
+- CI/CD 集成定时触发
+
+**使用方式：**
+
+在 Claude Code 中描述全流程执行意图，或输入：
+
+```
+/api-pipeline-scheduler
+```
+
+**编排的子技能（固定顺序）：**
+
+1. **api-test-executor** — 执行接口测试，收集结构化执行结果
+2. **api-testdata-cleaner** — 清理测试产生的临时数据、脏数据
+3. **api-report-generator** — 生成可视化 HTML 测试报告 + Allure 报告联动
+
+**四种执行模式：**
+
+| 模式 | 说明 |
+|------|------|
+| full_flow | 全链路串行执行（executor → cleaner → report-generator） |
+| only_exec | 仅执行接口测试 |
+| only_clean | 仅执行数据清理 |
+| only_report | 仅生成测试报告 |
+
+**核心能力：**
+- 参数自动透传：环境、文件路径、开关等参数在子技能间自动传递
+- 容错控制：单环节失败可选继续或终止
+- 统一输出：汇总所有子技能执行状态、文件路径、关键指标
+- 环境隔离：仅允许 dev/test 环境，prod 环境直接拦截
+
+---
+
 ### ui-page-parser — UI 页面解析器
 
 将页面 URL 或自然语言用例描述转换为标准化的 `pages.yaml` 页面对象定义，作为 UI 自动化测试数据链路的起点。
@@ -547,7 +773,7 @@ safe-testcase ──→ 场景遗漏补全
 review-testcase ──→ 用例质量评审（评分 + 分级）
 ```
 
-### 接口自动化测试流程
+### 接口自动化测试全流程
 
 ```
 接口文档（Swagger/Postman/HAR 等）
@@ -564,7 +790,18 @@ api-schema-parser ──→ 标准化接口数据 (api_definitions.json)
   │   api-test-optimizer ──→ 脚本质量检查与优化
   │         │
   │         ▼
-  │   可直接运行：pytest testcases/
+  │   api-test-tagger ──→ 智能标签化管理
+  │         │
+  │         ▼
+  │   api-test-executor ──→ 智能执行调度
+  │         │
+  │         ├──→ api-failure-diagnoser ──→ 失败诊断与自动修复
+  │         │
+  │         └──→ api-pipeline-scheduler ──→ 全链路流水线调度
+  │                 │
+  │                 ├── api-test-executor（执行测试）
+  │                 ├── api-testdata-cleaner（清理数据）
+  │                 └── api-report-generator（生成报告）
   │
   └──→ 也可直接进入 generator-testcase-xmind/excel 生成接口级测试用例
 ```
