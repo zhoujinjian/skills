@@ -1,0 +1,4 @@
+tests/product/test_search.py:55: in test_search_valid_keyword_shows_results
+    assert count > 0, f"搜索 '{keyword}' 应返回商品，但结果数为 {count}"
+E   AssertionError: 搜索 '小米' 应返回商品，但结果数为 0
+E   assert 0 > 0

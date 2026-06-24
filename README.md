@@ -28,6 +28,11 @@ skills/
 ├── ui-testscript-generator/     # UI 测试脚本生成
 ├── ui-testscript-enhancer/      # UI 测试脚本增强
 ├── ui-visual-assert/            # UI 视觉断言
+├── ui-test-tagger/              # UI 测试脚本智能标签化
+├── ui-test-executor/            # UI 测试智能执行调度引擎
+├── ui-failure-diagnoser/        # UI 测试失败诊断与自动修复
+├── ui-report-generator/         # UI 测试报告生成专家
+├── ui-pipeline-scheduler/       # UI 自动化全链路流水线调度器
 └── ...                          # 更多技能持续添加中
 ```
 
@@ -749,6 +754,216 @@ api_auto_project/
 
 ---
 
+### ui-test-tagger — UI 测试脚本智能标签化管理
+
+为 Playwright + POM + Pytest 的 UI 测试脚本自动打上标准化标签，建立可筛选、可过滤、可统计的标签体系，为按标签执行、按模块生成报告、按优先级调度、按浏览器分发提供基础。
+
+**适用场景：**
+- 为 UI 测试脚本批量打标签、检测冲突、补全缺失标签
+- 按模块/场景/页面/优先级分类管理 Playwright 用例
+- 生成标签分布统计报告
+- 结合 pytest `-m` 实现冒烟、回归、模块化执行
+
+**使用方式：**
+
+在 Claude Code 中提供测试脚本目录，或输入：
+
+```
+/ui-test-tagger
+```
+
+**六维标准化标签体系：**
+
+| 维度 | 标签格式 | 值域示例 | 必填 |
+|------|---------|----------|------|
+| 优先级 | P0/P1/P2/P3 | 核心链路 / 重要 / 一般 / 边缘 | 是 |
+| 模块 | module:xxx | login/product/cart/order/payment/user | 是 |
+| 场景 | scene:xxx | positive/negative/boundary/full_flow/visual_regress | 是 |
+| 页面类型 | page:xxx | home/list/detail/form/dialog | 是 |
+| 执行策略 | run:xxx | smoke/regression/full | 是 |
+| 浏览器/平台 | browser:xxx, platform:xxx | chrome/firefox/edge/safari | 否 |
+
+**核心能力：**
+- 智能推荐：解析方法名、docstring、`page.goto()` 路径、Playwright 操作步骤、断言内容，参照 pages.yaml 推断模块和优先级
+- 冲突检测：自动检测优先级、场景、策略、页面类型冲突
+- 装饰器映射：`module:login` → `@pytest.mark.module_login`，含冒号标签自动转下划线
+- 三种模式：analyze（仅分析）/ apply（写入）/ report（仅统计），默认 analyze 安全优先
+
+---
+
+### ui-test-executor — UI 测试智能执行调度引擎
+
+将已编写好的 Playwright + Pytest UI 测试脚本真正跑起来，形成「标签筛选 → 环境检测 → 执行调度 → artifact 采集 → 报告产出」的完整执行闭环。
+
+**适用场景：**
+- 触发执行 UI 测试、按标签/模块/优先级筛选
+- 跨浏览器矩阵执行、并行加速、失败重试
+- 自动采集失败截图、录屏、Trace、Console 日志、Page Source
+- 生成 JUnit XML / HTML / JSON 多格式报告，便于 CI 集成
+
+**使用方式：**
+
+在 Claude Code 中描述执行意图，或输入：
+
+```
+/ui-test-executor
+```
+
+**调度前标准化打印（每次必输出）：**
+- 浏览器环境清单：版本号 / Headless 支持 / 未安装提示
+- 待执行用例清单：`文件名：类别：用例名`，区分前置与主筛选集
+
+**6 类 Artifact（仅失败时采集）：**
+
+| 类型 | 触发 | 路径 |
+|------|------|------|
+| screenshots | setup/call 失败 | `artifacts/screenshots/` |
+| page-source | setup/call 失败 | `artifacts/page-source/` |
+| console-logs | setup/call 失败 | 5 段合并：Page Errors / Console / Network / Performance |
+| videos | call 失败 | `artifacts/pytest-raw/<slug>/video.webm` |
+| traces | call 失败 | `artifacts/pytest-raw/<slug>/trace.zip` |
+| har 等价 | 失败 | 写入 console-logs 的 `## Network` 段 |
+
+**核心能力：**
+- 自动浏览器检测（Playwright 内置 + 系统浏览器），无可用浏览器时引导安装
+- marker 表达式智能构建：`--priority` 累积包含（P0+P1）、`--tags` AND、`--modules` OR
+- 失败用例深度报告：每条失败含判定规则、断言原文、预期 vs 实际、元素校验、截图/录屏/Trace 路径
+- Trace Viewer 快捷打开：支持自然语言查询（`latest` / `小米` / 关键词子串）
+
+---
+
+### ui-failure-diagnoser — UI 测试失败诊断与全栈自动修复
+
+WEB UI 自动化测试失败用例智能诊断与全栈自动修复专家。分析 ui-test-executor 输出的 JUnit XML + artifacts，对失败做 6 类分类 + 14 种根因定位，自动修复 pages 层 locator、注入 conftest marker、清理测试脏数据、调起 playwright install。
+
+**适用场景：**
+- 诊断 UI 测试失败根因（环境、定位器、超时、数据、脚本、Bug）
+- 元素找不到、页面渲染慢、iframe 切换缺失等自动修复
+- pages.yaml 金标准对比修复定位漂移
+- 已知 Bug 注入 xfail/flaky marker，不掩盖真实缺陷
+
+**使用方式：**
+
+在 Claude Code 中提供失败结果文件，或输入：
+
+```
+/ui-failure-diagnoser
+```
+
+**6 类失败分类：**
+
+| 类型 | 判定信号 | 处理 |
+|------|---------|------|
+| **ENV_ERROR** | 浏览器/包未装、端口占用 | ✅ 自动 playwright install / pip install / lsof |
+| **LOCATOR_ERROR** | Timeout + locator 在 page-source 不存在 | ✅ AST 修复 + pages.yaml 对比 + 语义推断 |
+| **TIMEOUT_ERROR** | Timeout + locator 存在（渲染慢） | ✅ AST rewrite 调 timeout / 加 wait |
+| **DATA_ERROR** | setup 失败 + 数据问题 | ✅ 调 api-testdata-cleaner |
+| **SCRIPT_ERROR** | AttributeError / Deprecated API | ✅ AST rewrite（typo / 废弃 API / 异步等待） |
+| **BUG** | Page Error / 网络 5xx | ⚠️ 注入 xfail/flaky marker |
+
+**硬约束（永不违反）：**
+- 🚫 不改 `tests/**/*.py` 的断言与业务语义
+- 🟢 可改 `pages/**/*.py`（locator / timeout / iframe）
+- 🟢 可改 `tests/conftest.py`（只加 marker hook，不改 fixture/setup）
+- 🟢 所有副作用操作（pip install / playwright install）走 JSONL 审计日志
+
+**核心能力：**
+- 14 种根因精准定位，每种都有对应 fix_strategy
+- AST rewrite 默认备份 `.bak`，`--verify` 时失败自动回滚
+- pages.yaml 金标准对比：同身份元素的 canonical locator 推荐
+- 风险分级自动执行：🟢 低风险自动跑 / 🟡 中风险默认跑可关闭 / 🔴 高风险仅建议
+
+---
+
+### ui-report-generator — UI 测试报告生成专家
+
+将 ui-test-executor 的 JUnit XML + artifacts、ui-failure-diagnoser 的诊断报告、历史趋势数据融合为单文件 HTML 可视化报告，含状态分布、模块通过率、浏览器矩阵、风险分级、失败详情（含内联截图/录屏/Trace 打开按钮）、根因聚类与优化建议。
+
+**适用场景：**
+- 生成可视化 HTML UI 测试报告
+- 跨浏览器通过率矩阵对比
+- 失败用例深度详情（截图、录屏、Trace 一键打开）
+- 历史通过率趋势分析、根因聚类与优化建议
+
+**使用方式：**
+
+在 Claude Code 中提供执行结果文件，或输入：
+
+```
+/ui-report-generator
+```
+
+**数据源（5 类融合）：**
+
+| 数据源 | 来源 Skill | 关键字段 |
+|--------|-----------|---------|
+| JUnit XML（必需） | ui-test-executor | nodeid / status / duration / browser |
+| 失败 artifacts | ui-test-executor | 截图 / page-source / console-log / 录屏 / Trace |
+| 诊断报告 | ui-failure-diagnoser | 分类 / 根因 / 修复策略 / 验证状态 |
+| 浏览器环境 | ui-test-executor | 已安装浏览器清单 |
+| 历史趋势 | 外部累积 | 多次执行通过率序列 |
+
+**报告页面分区：**
+
+| 区块 | UI 特有增强 |
+|------|------------|
+| 总览大盘（6 张 KPI 卡） | — |
+| 数据图表（饼图/柱图/折线） | — |
+| **浏览器矩阵** | ✅ 多浏览器通过率对比 |
+| 模块统计 | — |
+| 诊断根因聚合 | ✅ 集成 ui-failure-diagnoser |
+| 风险与建议 | ✅ 含具体修复动作 |
+| **失败详情** | ✅ 内联截图 + 录屏 + Trace 打开按钮 |
+| 用例明细（筛选+分页） | ✅ 浏览器筛选器 |
+
+**核心能力：**
+- 单文件 HTML 输出（CSS/JS/JSON 内联），可独立打开
+- Chart.js 4.4 CDN，离线自动降级到表格
+- Trace 一键复制 `playwright show-trace` 命令到剪贴板
+- 容错策略：任一可选输入缺失都显示「暂无数据」，不影响整体报告
+
+---
+
+### ui-pipeline-scheduler — UI 自动化全链路流水线调度器
+
+WEB UI 自动化测试的统一编排入口，把 ui-test-executor → ui-failure-diagnoser → 重试 → merge_reports → ui-report-generator 串成「执行 → 诊断 → 修复 → 重试 → 合并 → 报告」完整闭环，含失败诊断+智能重试+熔断兜底。
+
+**适用场景：**
+- 一键全跑 UI 自动化（执行+诊断+报告全流程）
+- 自动修复失败用例并重试（max_retries 循环）
+- 端到端 UI 测试流水线
+- CI/CD 集成定时触发完整闭环
+
+**使用方式：**
+
+在 Claude Code 中描述全流程执行意图，或输入：
+
+```
+/ui-pipeline-scheduler
+```
+
+**编排的子技能（严格串行）：**
+
+```
+ui-test-executor → ui-failure-diagnoser → ui-test-executor（重试）→ merge_reports → ui-report-generator
+     Step 1            Step 2                  Step 3              Step 4.5         Step 5
+```
+
+**核心能力：**
+- **零侵入**：不修改任何子技能代码/入参/出参，仅做编排与参数透传
+- **失败熔断**：达 max_retries（默认 2）立即跳出，不死循环
+- **始终生成报告**：无论失败与否，Step 5 必须执行
+- **多轮 XML 合并**：内置 `merge_reports.py`，把首轮完整 XML + 各轮重试 XML 合并，保证最终报告含完整 N 条用例
+- **参数自动透传**：环境、路径、开关等在子技能间自动传递
+- **详细执行摘要**：每步骤耗时、修复数、最终通过率、Allure 链接
+
+**熔断条件（满足任一即跳出循环）：**
+1. `round >= max_retries`（默认 2）
+2. 上一轮诊断修复数 == 0（修复无效）
+3. 当前轮全部通过
+
+---
+
 ## 技能协作流程
 
 ### 需求分析与测试用例设计流程
@@ -824,7 +1039,31 @@ ui-testscript-enhancer ──→ 脚本健壮性增强（智能等待/验证码/
 ui-visual-assert ──→ 视觉回归 + 跨浏览器 + 响应式测试
   │
   ▼
-可直接运行：pytest tests/ --headed
+ui-test-tagger ──→ 六维智能标签化管理（优先级/模块/场景/页面/策略/浏览器）
+  │
+  ▼
+ui-test-executor ──→ 智能执行调度（标签筛选/浏览器矩阵/失败 artifact 采集）
+  │         │
+  │         ├──→ ui-failure-diagnoser ──→ 失败诊断与自动修复（6 类分类 + 14 种根因）
+  │         │
+  │         └──→ ui-pipeline-scheduler ──→ 全链路流水线调度（执行→诊断→重试→报告）
+  │                 │
+  │                 ├── ui-test-executor（首轮执行）
+  │                 ├── ui-failure-diagnoser（诊断修复）
+  │                 ├── ui-test-executor（重试失败用例）
+  │                 ├── merge_reports（多轮 XML 合并）
+  │                 └── ui-report-generator（生成最终报告）
+  │
+  └──→ 也可直接调子技能独立执行：
+        - ui-test-executor：单独跑测试
+        - ui-failure-diagnoser：单独诊断已有失败
+        - ui-report-generator：基于 JUnit XML 出报告
+```
+
+**最小运行路径**（不使用流水线编排）：
+
+```
+ui-test-executor ──→ pytest tests/ --headed
 ```
 
 ## 安装使用

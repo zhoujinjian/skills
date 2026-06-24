@@ -1,0 +1,4 @@
+Error: Locator.expect(to_have_text):
+  Expected value: "小米手机"
+  Received value: ""
+  Locator: get_by_role("button", name="搜索")

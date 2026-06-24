@@ -75,8 +75,10 @@ async def _wait_for_signal(timeout: int):
             await asyncio.sleep(1)
         return "timeout"
 
+    stdin_task = asyncio.ensure_future(_wait_stdin())
+    file_task = asyncio.ensure_future(_wait_file())
     done, pending = await asyncio.wait(
-        [_wait_stdin(), _wait_file()],
+        [stdin_task, file_task],
         timeout=timeout,
         return_when=asyncio.FIRST_COMPLETED,
     )
