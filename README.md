@@ -1,6 +1,6 @@
 # Skills
 
-Claude Code 技能集合，用于管理和存放各类自定义 Skill。
+[「AI进化社」](https://testfather.cn) 实战技能集合，用于管理和存放各类自定义 Skill。
 
 每个 Skill 以独立目录的形式存放在 `skills/` 下，包含技能定义文件（`SKILL.md`）和评估配置（`evals/`）。
 
